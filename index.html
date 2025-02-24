@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="300"> <!-- 每 ？ 秒刷新页面 -->
+    <title>重点任务进展</title>
+    <style>
+        table {
+            width: 99%;
+            border-collapse: collapse;
+            margin:0 auto;
+            margin-top: 90px;
+        }
+        th, td {
+            border: 2px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        /* 固定列宽 */
+        th:nth-child(1), td:nth-child(1) { width: 8%; }
+        th:nth-child(2), td:nth-child(2) { width: 20%; }
+        th:nth-child(3), td:nth-child(3) { width: 5%; }
+        th:nth-child(4), td:nth-child(4) { width: 8%; }
+        th:nth-child(5), td:nth-child(5) { width: 8%; }
+        th:nth-child(6), td:nth-child(6) { width: 8%; }
+        th:nth-child(7), td:nth-child(7) { width: 20%; }
+        th:nth-child(8), td:nth-child(8) { width: 10%; }
+        {% if mode == 'edit' %}
+        th:nth-child(9), td:nth-child(9) { width: 10%; }
+        {% endif %}
+
+        /* 美化按钮 */
+        a {
+            display: inline-block;
+            background-color: #007BFF;
+            color: white;
+            padding: 6px 12px;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 2px;
+        }
+        a:hover {
+            background-color: #0056b3;
+        }
+        /* 美化本地图标按钮 */
+        a img {
+            width: 15px;
+            height: 15px;
+            color: white;
+<!--            background-color: #007BFF;-->
+            padding: 2px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+
+        a img:hover {
+            background-color: #0056b3;
+        }
+         /* 图标样式 */
+        .top-right-icon {
+            position: absolute;
+            top: 5px;
+            left: 13px;
+            width: 80px;
+            height: 80px;
+        }
+        /* 调整任务列表标题的样式 */
+        .task-list-title {
+            position: absolute;
+            top: 5px;
+            left: 98px;
+        }
+        /* 可编辑单元格样式 */
+        .editable {
+            background-color: #ffffcc;
+        }
+        /* 新增任务弹窗样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 2% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 40%;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .modal input,
+        .modal select,
+        .modal textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .modal input#finsh_time,
+        .modal input#receive_time {
+            width: 97%;
+            resize: vertical;
+        }
+
+        .modal textarea#description,
+        .modal textarea#progress_in_detail {
+            width: 97%; /* 可根据需要调整宽度 */
+            height: 50px; /* 可根据需要调整高度 */
+            resize: vertical;
+        }
+
+        .modal button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .modal button:hover {
+            background-color: #0056b3;
+        }
+
+    </style>
+    <script>
+        function confirmDelete(id) {
+            if (confirm('确定要删除该任务吗？')) {
+                window.location.href = '/delete/' + id;
+            }
+        }
+         function makeEditable(cell) {
+            if ("{{ mode }}" === 'edit') {
+                const taskId = cell.parentNode.dataset.id;
+                const column = cell.dataset.column;
+                // 只允许编辑任务内容、总体进度、进展情况
+                if (column === 'leader' || column === 'executor' || column === 'finsh_time' || column === 'receive_time' || column === 'description' || column === 'overall_progress' || column === 'progress_in_detail') {
+                    cell.contentEditable = true;
+                    cell.classList.add('editable');
+                    cell.addEventListener('blur', function () {
+                        saveChanges(taskId, column, this.textContent);
+                        this.classList.remove('editable');
+                    });
+                }
+            }
+        }
+
+        function saveChanges(taskId, column, value) {
+            fetch('/update_task', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: taskId,
+                    column: column,
+                    value: value
+                })
+            })
+              .then(response => response.json())
+              .then(data => {
+                    if (data.status!== 'success') {
+                        alert('更新失败: ' + data.message);
+                    }
+                })
+              .catch(error => {
+                    alert('发生错误: ' + error);
+                });
+        }
+
+
+        function openModal() {
+            document.getElementById('myModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('myModal').style.display = 'none';
+        }
+
+        function submitForm() {
+            const form = document.getElementById('addTaskForm');
+            const formData = new FormData(form);
+
+            fetch('/add', {
+                method: 'POST',
+                body: formData
+            })
+              .then(response => response.json())
+              .then(data => {
+                    if (data.status === 'success') {
+<!--                        alert(data.message);-->
+                        closeModal();
+                        // 刷新页面以显示新任务
+                        location.reload();
+                    } else {
+                        alert('新增任务失败: ' + data.message);
+                    }
+                })
+              .catch(error => {
+                    alert('发生错误: ' + error);
+                });
+           closeModal();
+        }
+        // 获取当前日期并插入到标题后面
+        window.onload = function () {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const dateString = `${year}-${month}-${day}`;
+
+            const title = document.querySelector('.task-list-title');
+            const dateElement = document.createElement('span');
+            dateElement.textContent = ` (${dateString})`;
+            title.appendChild(dateElement);
+        };
+    </script>
+</head>
+<body>
+
+    <img class="top-right-icon" src="{{ url_for('static', filename='icon.png') }}" alt="图标">
+<!--    <a href="{{ url_for('logout') }}">注销</a>-->
+    <h1 class="task-list-title">重点任务进展情况</h1>
+    {% if mode == 'display' %}
+    <a href="{{ url_for('switch_to_edit_mode') }}" style="position: absolute; top: 10px; right: 50px;">
+        <img src="{{ url_for('static', filename='pen-to-square-solid.svg') }}" alt="编辑图标">
+    </a>
+    {% else %}
+    <a href="{{ url_for('switch_to_display_mode') }}" style="position: absolute; top: 10px; right: 50px;">放映</a>
+    <a href="#" onclick="openModal()" style="position: absolute; top: 50px; right: 50px;">新增</a>
+    {% endif %}
+    <table>
+        <thead>
+            <tr>
+                <th>任务来源</th>
+                <th>任务内容</th>
+                <th>负责人</th>
+                <th>接收时间</th>
+                <th>要求完成时间</th>
+                <th>总体进度</th>
+                <th>进展情况</th>
+                {% if mode == 'edit' %}
+                <th>操作</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr data-id="{{ task[0] }}">
+                <td data-column="leader" onclick="makeEditable(this)">{{ task[1] }}</td>
+                <td data-column="description" onclick="makeEditable(this)">{{ task[2] }}</td>
+                <td data-column="executor" onclick="makeEditable(this)">{{ task[3] }}</td>
+                <td data-column="receive_time" onclick="makeEditable(this)">{{ task[4] }}</td>
+                <td data-column="finsh_time" onclick="makeEditable(this)">{{ task[5] }}</td>
+                <td data-column="overall_progress" onclick="makeEditable(this)">{{ task[6] }}</td>
+                <td data-column="progress_in_detail" onclick="makeEditable(this)">{{ task[7] }}</td>
+                {% if mode == 'edit' %}
+                <td>
+                    <a href="#" onclick="confirmDelete({{ task[0] }})">删除</a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+<!-- 弹窗 -->
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>新增任务</h2>
+            <form id="addTaskForm">
+                <label for="leader">任务来源:</label>
+                <select id="leader" name="leader">
+                    <option value="韩宇总">韩宇总</option>
+                    <option value="韩增辉总">韩增辉总</option>
+                    <option value="朱晓威主任">朱晓威主任</option>
+                </select><br>
+                <label for="description">任务内容:</label>
+                <textarea id="description" name="description"></textarea><br>
+                <label for="executor">负责人:</label>
+                <select id="executor" name="executor">
+                    <option value="朱洪利">朱洪利</option>
+                    <option value="宋艺">宋艺</option>
+                    <option value="张树新">张树新</option>
+                    <option value="张浩">张浩</option>
+                    <option value="王珊">王珊</option>
+                    <option value="张革">张革</option>
+                    <option value="王浩">王浩</option>
+                    <option value="张恩浩">张恩浩</option>
+                    <option value="潘华莉">潘华莉</option>
+                    <option value="董弘宇">董弘宇</option>
+                    <option value="邵宁">邵宁</option>
+                    <option value="薛䶮">薛䶮</option>
+                </select><br>
+                <label for="receive_time">接收时间:</label>
+                <input type="date" id="receive_time" name="receive_time"><br>
+                <label for="finsh_time">要求完成时间:</label>
+                <input type="date" id="finsh_time" name="finsh_time"><br>
+                <label for="overall_progress">总体进度:</label>
+                <input type="text" id="overall_progress" name="overall_progress"><br>
+                <label for="progress_in_detail">进展情况:</label>
+                <textarea id="progress_in_detail" name="progress_in_detail"></textarea><br>
+                <button type="button" onclick="submitForm()">保存</button>
+                <button type="button" onclick="closeModal()">取消</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
