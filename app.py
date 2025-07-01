@@ -108,7 +108,7 @@ def index():
     conn.close()
     username = session['username']  # 获取当前登录用户的用户名
     mode = session.get('mode', 'display')
-    leaders = ['韩宇总', '韩增辉总', '朱晓威主任']
+    leaders = ['张振刚总', '李世冲总', '朱晓威主任']
     executors = ['朱洪利', '宋艺', '张树新', '张浩', '王珊', '张革', '王浩', '张恩浩', '潘华莉', '董弘宇', '邵宁', '薛䶮']
     return render_template('index.html', tasks=tasks, username=username, mode=mode, leaders=leaders, executors=executors)
 
