@@ -103,7 +103,8 @@ def index():
         return redirect(url_for('login'))
     conn = sqlite3.connect('tasks.db')
     c = conn.cursor()
-    c.execute('SELECT * FROM task')
+        # 按总体进度排序，未完成的任务在前面，已完成的任务在后面
+    c.execute('SELECT * FROM task ORDER BY CASE WHEN overall_progress = "100%" OR overall_progress = "已完成" THEN 1 ELSE 0 END, finsh_time ASC')
     tasks = c.fetchall()
     conn.close()
     username = session['username']  # 获取当前登录用户的用户名
@@ -236,3 +237,4 @@ if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=5000)
     app.run(debug=True)
+
